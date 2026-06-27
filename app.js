@@ -2,7 +2,7 @@
 const SUPABASE_URL = 'https://dbxesltmvijfnxvsklwj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_9v4R-rTXUgktfzRIYVJlHA_qZ1ZCbGY';
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // DOM要素の取得
 const authSection = document.getElementById('auth-section');
@@ -39,13 +39,13 @@ function updateUI(session) {
 
 // 初回読み込み時のセッション確認
 async function checkSession() {
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session } } = await client.auth.getSession();
   updateUI(session);
 }
 checkSession();
 
 // セッション状態の変化を監視（ログイン・ログアウト時）
-supabase.auth.onAuthStateChange((event, session) => {
+client.auth.onAuthStateChange((event, session) => {
   updateUI(session);
 });
 
@@ -55,7 +55,7 @@ document.getElementById('btn-signup').addEventListener('click', async () => {
   const password = authPassword.value;
   if (!email || !password) return alert('メールアドレスとパスワードを入力してください');
 
-  const { data, error } = await supabase.auth.signUp({ email, password });
+  const { data, error } = await client.auth.signUp({ email, password });
   if (error) {
     alert('新規登録エラー: ' + error.message);
   } else {
@@ -69,7 +69,7 @@ document.getElementById('btn-login').addEventListener('click', async () => {
   const password = authPassword.value;
   if (!email || !password) return alert('メールアドレスとパスワードを入力してください');
 
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await client.auth.signInWithPassword({ email, password });
   if (error) {
     alert('ログインエラー: ' + error.message);
   }
@@ -77,7 +77,7 @@ document.getElementById('btn-login').addEventListener('click', async () => {
 
 // ログアウトボタン
 document.getElementById('btn-logout').addEventListener('click', async () => {
-  await supabase.auth.signOut();
+  await client.auth.signOut();
 });
 
 
@@ -89,7 +89,7 @@ document.getElementById('btn-logout').addEventListener('click', async () => {
 async function fetchTasks() {
   if (!currentUser) return; // 未ログイン時は実行しない
 
-  const { data: tasks, error } = await supabase
+  const { data: tasks, error } = await client
     .from('tasks')
     .select('*')
     .order('position', { ascending: true }); // 並び順に取得
@@ -141,7 +141,7 @@ taskForm.addEventListener('submit', async (e) => {
   if (!titleInput.value.trim() || !currentUser) return;
 
   // ※ user_id はSupabase側（PostgreSQLのデフォルト値）で自動付与されます
-  await supabase.from('tasks').insert([{ title: titleInput.value.trim() }]);
+  await client.from('tasks').insert([{ title: titleInput.value.trim() }]);
   
   titleInput.value = '';
   fetchTasks();
@@ -149,13 +149,13 @@ taskForm.addEventListener('submit', async (e) => {
 
 // 開始ボタンの処理
 window.startTask = async (id) => {
-  await supabase.from('tasks').update({ start_time: new Date().toISOString() }).eq('id', id);
+  await client.from('tasks').update({ start_time: new Date().toISOString() }).eq('id', id);
   fetchTasks();
 };
 
 // 終了ボタンの処理
 window.endTask = async (id) => {
-  await supabase.from('tasks').update({ end_time: new Date().toISOString() }).eq('id', id);
+  await client.from('tasks').update({ end_time: new Date().toISOString() }).eq('id', id);
   fetchTasks();
 };
 
@@ -165,7 +165,7 @@ window.duplicateTask = async (id) => {
   if (!task) return;
   
   // タイトルだけをコピーし、開始・終了時間は空（デフォルト）で追加
-  await supabase.from('tasks').insert([{ title: task.title }]);
+  await client.from('tasks').insert([{ title: task.title }]);
   fetchTasks();
 };
 
@@ -181,7 +181,7 @@ new Sortable(taskList, {
     
     // 順番に基づいて position の数値を更新するリクエストを生成
     const updates = items.map((item, index) => {
-      return supabase.from('tasks').update({ position: index }).eq('id', item.dataset.id);
+      return client.from('tasks').update({ position: index }).eq('id', item.dataset.id);
     });
     
     // 並列処理で一括更新し、完了後に再取得
