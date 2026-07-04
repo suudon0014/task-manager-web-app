@@ -74,17 +74,23 @@ function parseTimeInput(val, dateStr) {
   const s = parseInt(ss, 10);
   if (h < 0 || h > 23 || m < 0 || m > 59 || s < 0 || s > 59) return null;
 
-  return `${dateStr}T${hh}:${mm}:${ss}`;
+  // 日本時間としてパースするために +09:00 を付与してISO文字列化
+  const localIso = `${dateStr}T${hh}:${mm}:${ss}+09:00`;
+  return new Date(localIso).toISOString();
 }
 
-// ISO文字列をHH:mm:ss形式に変換
+// ISO文字列をHH:mm:ss形式（日本時間）に変換
 function formatTimeForInput(isoString) {
   if (!isoString) return '';
   const d = new Date(isoString);
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mm = String(d.getMinutes()).padStart(2, '0');
-  const ss = String(d.getSeconds()).padStart(2, '0');
-  return `${hh}:${mm}:${ss}`;
+  // 日本時間(JST)でフォーマット
+  return d.toLocaleTimeString('ja-JP', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+    timeZone: 'Asia/Tokyo'
+  });
 }
 
 // ==========================================
@@ -390,8 +396,8 @@ window.openEditModal = (id) => {
   document.getElementById('edit-tag-ids').value = task.tag_ids || '';
   document.getElementById('edit-routine-id').value = task.routine_id || '';
 
-  document.getElementById('display-created-at').textContent = task.created_at ? new Date(task.created_at).toLocaleString() : '-';
-  document.getElementById('display-updated-at').textContent = task.updated_at ? new Date(task.updated_at).toLocaleString() : '-';
+  document.getElementById('display-created-at').textContent = task.created_at ? new Date(task.created_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }) : '-';
+  document.getElementById('display-updated-at').textContent = task.updated_at ? new Date(task.updated_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }) : '-';
 
   editModal.style.display = 'flex';
 };
