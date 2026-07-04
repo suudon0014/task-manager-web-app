@@ -6,8 +6,48 @@ button { padding: 8px 16px; cursor: pointer; }
 ul { list-style: none; padding: 0; margin: 0; }
 li { display: flex; align-items: center; padding: 10px; background: #fafafa; margin-bottom: 8px; border: 1px solid #ddd; border-radius: 4px; cursor: grab; }
 li.sortable-ghost { opacity: 0.4; background: #e0e0e0; }
-.task-btn { background: none; border: none; font-size: 1.2rem; margin-right: 15px; color: #555; padding: 0; }
-.task-btn:hover { color: #000; }
+.task-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  margin-right: 15px;
+  flex-shrink: 0;
+}
+.task-btn i {
+  color: #000;
+  font-size: 1rem;
+}
+.start-btn { background-color: #97c9f0; }
+.end-btn { background-color: #ff4d4d; }
+.completed-btn { background-color: #888888; cursor: default; }
+.duplicate-btn { background-color: #3b99f1; }
+
+.task-btn-container {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  margin-right: 15px;
+  flex-shrink: 0;
+}
+.task-btn-container .task-btn {
+  margin-right: 0;
+}
+.task-btn-container .duplicate-btn {
+  display: none;
+}
+.task-btn-container:hover .completed-btn {
+  display: none;
+}
+.task-btn-container:hover .duplicate-btn {
+  display: flex;
+}
+
 .task-content { display: flex; flex-direction: column; }
 .task-title { font-weight: bold; }
 .task-times { font-size: 0.8rem; color: #777; margin-top: 4px; }
