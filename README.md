@@ -1,7 +1,7 @@
 # タスク管理アプリ (Task Management App)
 
-Supabase（バックエンド）とGitHub Pages（フロントエンド）を利用して作成した、簡易的なタスク管理SPA（Single Page Application）です。
-ビルド環境（Node.jsやWebpackなど）を必要とせず、HTML / CSS / Vanilla JavaScriptのみで構築されているため、軽量かつ簡単にデプロイ・拡張が可能です。
+Supabase（バックエンド）と GitHub Pages（フロントエンド）を利用して作成した、タスク管理SPA（Single Page Application）です。
+Vite と TypeScript を使用して構築されており、型安全で高速な開発・ビルドが可能です。
 
 ## 🚀 主な機能
 
@@ -32,7 +32,9 @@ Supabase（バックエンド）とGitHub Pages（フロントエンド）を利
 ## 🛠 使用技術 (Tech Stack)
 
 * **フロントエンド**
-  * HTML5 / CSS3 / Vanilla JavaScript
+  * [TypeScript](https://www.typescriptlang.org/)
+  * [Vite](https://ja.vite.dev/) (ビルドツール)
+  * HTML5 / CSS3
   * [SortableJS](https://sortablejs.github.io/Sortable/) (ドラッグ＆ドロップ機能)
   * [FontAwesome](https://fontawesome.com/) (アイコン)
 * **バックエンド (BaaS)**
@@ -114,19 +116,29 @@ WITH CHECK (auth.uid() = user_id);
     にして保存します（メール確認なしで即座にログインできるようにするため）。
 4.  左側メニューの Project Settings > API から、Project URL と anon (public) key をコピーします。
 
-2. フロントエンドの設定
+### 2. フロントエンドの設定
 
 1.  リポジトリをクローンまたはダウンロードします。
-2.  app.js の1〜2行目にある定数を、先ほどコピーしたURLとキーに書き換えます。
+2.  `src/app.ts` の1〜2行目にある定数を、先ほどコピーしたURLとキーに書き換えます。
 
-```js
+```typescript
 const SUPABASE_URL = 'YOUR_SUPABASE_URL';
 const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
 ```
 
-3. ローカルでの動作確認とデプロイ
+### 3. ローカルでの動作確認とデプロイ
 
-1.  index.html をブラウザで直接開くか、VS Codeの「Live Server」拡張機能などで起動し、動作を確認します。
-2.  動作確認後、GitHubリポジトリ（PublicでOK）へプッシュします。
-3.  リポジトリの Settings > Pages からデプロイ先を main ブランチに設定することで、GitHub
-    Pagesとして全世界に公開されます。
+1.  依存関係をインストールします。
+    ```bash
+    npm install
+    ```
+2.  ローカル開発サーバーを起動します。
+    ```bash
+    npm run dev
+    ```
+3.  `http://localhost:5173` (デフォルト) にアクセスして動作を確認します。
+4.  ビルドを行う場合は以下のコマンドを実行します。
+    ```bash
+    npm run build
+    ```
+    `dist` ディレクトリに公開用ファイルが生成されます。
