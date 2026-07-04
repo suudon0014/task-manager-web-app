@@ -57,6 +57,52 @@
     </div>
   </div>
 
+  <!-- タスク編集用モーダル -->
+  <div id="edit-modal" class="modal">
+    <div class="modal-content">
+      <h2>タスク詳細</h2>
+      <form id="edit-task-form">
+        <input type="hidden" id="edit-id">
+        <div class="form-group">
+          <label for="edit-title">タイトル</label>
+          <input type="text" id="edit-title" required>
+        </div>
+        <div class="form-group">
+          <label for="edit-scheduled-at">予定日</label>
+          <input type="date" id="edit-scheduled-at" required>
+        </div>
+        <div class="form-group">
+          <label for="edit-note">メモ (Markdown)</label>
+          <textarea id="edit-note" rows="4"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="edit-project-id">Project ID (UUID)</label>
+          <input type="text" id="edit-project-id" placeholder="uuid">
+        </div>
+        <div class="form-group">
+          <label for="edit-mode-id">Mode ID (UUID)</label>
+          <input type="text" id="edit-mode-id" placeholder="uuid">
+        </div>
+        <div class="form-group">
+          <label for="edit-tag-ids">Tag IDs (UUID)</label>
+          <input type="text" id="edit-tag-ids" placeholder="uuid">
+        </div>
+        <div class="form-group">
+          <label for="edit-routine-id">Routine ID (UUID)</label>
+          <input type="text" id="edit-routine-id" placeholder="uuid">
+        </div>
+        <div class="modal-info">
+          <p>作成日時: <span id="display-created-at">-</span></p>
+          <p>更新日時: <span id="display-updated-at">-</span></p>
+        </div>
+        <div class="modal-actions">
+          <button type="submit" class="btn-save">保存</button>
+          <button type="button" class="btn-cancel" onclick="closeEditModal()">キャンセル</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <!-- SortableJS (ドラッグ＆ドロップ用) -->

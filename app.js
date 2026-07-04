@@ -154,17 +154,11 @@ async function fetchTasks() {
 
   updateDateDisplay();
 
-  // 選択された日付の 00:00:00 〜 23:59:59.999 の範囲でフィルタリング
-  const startOfDay = new Date(selectedDate);
-  startOfDay.setHours(0, 0, 0, 0);
-  const endOfDay = new Date(selectedDate);
-  endOfDay.setHours(23, 59, 59, 999);
-
+  // 選択された日付（scheduled_at）でフィルタリング
   const { data: tasks, error } = await client
     .from('tasks')
     .select('*')
-    .gte('created_at', startOfDay.toISOString())
-    .lte('created_at', endOfDay.toISOString())
+    .eq('scheduled_at', formatDate(selectedDate))
     .order('position', { ascending: true }); // 並び順に取得
 
   if (error) return console.error('取得エラー:', error);
@@ -199,6 +193,7 @@ async function fetchTasks() {
         <span class="task-title"></span>
         ${timesText ? `<span class="task-times">${timesText}</span>` : ''}
       </div>
+      <button class="edit-btn" onclick="openEditModal('${task.id}')"><i class="fas fa-edit"></i></button>
     `;
     
     // XSS対策：タイトルはtextContentで安全に挿入
@@ -213,22 +208,10 @@ taskForm.addEventListener('submit', async (e) => {
   const titleInput = document.getElementById('task-title');
   if (!titleInput.value.trim() || !currentUser) return;
 
-  // 選択された日付に合わせて作成日時を設定
-  // 今日なら現在の時刻、それ以外ならその日の 00:00:00 (または現在時刻のその日版)
-  const now = new Date();
-  let createdAt;
-  if (formatDate(selectedDate) === formatDate(now)) {
-    createdAt = now.toISOString();
-  } else {
-    const taskDate = new Date(selectedDate);
-    taskDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
-    createdAt = taskDate.toISOString();
-  }
-
   // ※ user_id はSupabase側（PostgreSQLのデフォルト値）で自動付与されます
   await client.from('tasks').insert([{
     title: titleInput.value.trim(),
-    created_at: createdAt
+    scheduled_at: formatDate(selectedDate)
   }]);
   
   titleInput.value = '';
@@ -252,24 +235,78 @@ window.duplicateTask = async (id) => {
   const task = currentTasks.find(t => t.id === id);
   if (!task) return;
   
-  // 複製時も現在の選択日に合わせる
-  const now = new Date();
-  let createdAt;
-  if (formatDate(selectedDate) === formatDate(now)) {
-    createdAt = now.toISOString();
-  } else {
-    const taskDate = new Date(selectedDate);
-    taskDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
-    createdAt = taskDate.toISOString();
-  }
-
-  // タイトルだけをコピーし、開始・終了時間は空（デフォルト）で追加
+  // タイトルやメモ、属性をコピーし、現在の選択日に合わせる
+  // 開始・終了時間は空（デフォルト）で追加
   await client.from('tasks').insert([{
     title: task.title,
-    created_at: createdAt
+    scheduled_at: formatDate(selectedDate),
+    note: task.note,
+    project_id: task.project_id,
+    mode_id: task.mode_id,
+    tag_ids: task.tag_ids,
+    routine_id: task.routine_id
   }]);
   fetchTasks();
 };
+
+// ==========================================
+// 2.5 タスク詳細編集モーダルの処理
+// ==========================================
+
+const editModal = document.getElementById('edit-modal');
+const editTaskForm = document.getElementById('edit-task-form');
+
+window.openEditModal = (id) => {
+  const task = currentTasks.find(t => t.id === id);
+  if (!task) return;
+
+  document.getElementById('edit-id').value = task.id;
+  document.getElementById('edit-title').value = task.title;
+  document.getElementById('edit-scheduled-at').value = task.scheduled_at;
+  document.getElementById('edit-note').value = task.note || '';
+  document.getElementById('edit-project-id').value = task.project_id || '';
+  document.getElementById('edit-mode-id').value = task.mode_id || '';
+  document.getElementById('edit-tag-ids').value = task.tag_ids || '';
+  document.getElementById('edit-routine-id').value = task.routine_id || '';
+
+  document.getElementById('display-created-at').textContent = task.created_at ? new Date(task.created_at).toLocaleString() : '-';
+  document.getElementById('display-updated-at').textContent = task.updated_at ? new Date(task.updated_at).toLocaleString() : '-';
+
+  editModal.style.display = 'flex';
+};
+
+window.closeEditModal = () => {
+  editModal.style.display = 'none';
+};
+
+editTaskForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = document.getElementById('edit-id').value;
+  const updates = {
+    title: document.getElementById('edit-title').value.trim(),
+    scheduled_at: document.getElementById('edit-scheduled-at').value,
+    note: document.getElementById('edit-note').value.trim() || null,
+    project_id: document.getElementById('edit-project-id').value.trim() || null,
+    mode_id: document.getElementById('edit-mode-id').value.trim() || null,
+    tag_ids: document.getElementById('edit-tag-ids').value.trim() || null,
+    routine_id: document.getElementById('edit-routine-id').value.trim() || null,
+  };
+
+  const { error } = await client.from('tasks').update(updates).eq('id', id);
+  if (error) {
+    alert('更新エラー: ' + error.message);
+  } else {
+    closeEditModal();
+    fetchTasks();
+  }
+});
+
+// モーダルの外側をクリックしたら閉じる
+window.addEventListener('click', (e) => {
+  if (e.target === editModal) {
+    closeEditModal();
+  }
+});
 
 // ==========================================
 // 3. ドラッグ＆ドロップによる並び替え処理
