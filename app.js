@@ -44,6 +44,55 @@ function updateDateDisplay() {
   datePicker.value = formatDate(selectedDate);
 }
 
+// 時間入力をパースしてISO文字列（ローカル時刻）を返す
+function parseTimeInput(val, dateStr) {
+  if (!val) return null;
+  let hh, mm, ss = '00';
+
+  if (val.includes(':')) {
+    const parts = val.split(':');
+    hh = parts[0].padStart(2, '0');
+    mm = (parts[1] || '0').padStart(2, '0');
+    if (parts[2]) ss = parts[2].padStart(2, '0');
+  } else {
+    const digits = val.replace(/\D/g, '');
+    if (digits.length === 4) {
+      hh = digits.substring(0, 2);
+      mm = digits.substring(2, 4);
+    } else if (digits.length === 6) {
+      hh = digits.substring(0, 2);
+      mm = digits.substring(2, 4);
+      ss = digits.substring(4, 6);
+    } else {
+      return null;
+    }
+  }
+
+  // バリデーション
+  const h = parseInt(hh, 10);
+  const m = parseInt(mm, 10);
+  const s = parseInt(ss, 10);
+  if (h < 0 || h > 23 || m < 0 || m > 59 || s < 0 || s > 59) return null;
+
+  // 日本時間としてパースするために +09:00 を付与してISO文字列化
+  const localIso = `${dateStr}T${hh}:${mm}:${ss}+09:00`;
+  return new Date(localIso).toISOString();
+}
+
+// ISO文字列をHH:mm:ss形式（日本時間）に変換
+function formatTimeForInput(isoString) {
+  if (!isoString) return '';
+  const d = new Date(isoString);
+  // 日本時間(JST)でフォーマット
+  return d.toLocaleTimeString('ja-JP', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+    timeZone: 'Asia/Tokyo'
+  });
+}
+
 // ==========================================
 // 1. 認証（ログイン・サインアップ）関連の処理
 // ==========================================
@@ -170,7 +219,7 @@ async function fetchTasks() {
     const li = document.createElement('li');
     li.dataset.id = task.id;
 
-    let btnHtml, timesText = '';
+    let btnHtml = '';
     
     // 要件に応じた状態判定
     if (!task.start_time) {
@@ -179,7 +228,6 @@ async function fetchTasks() {
     } else if (!task.end_time) {
       // 実行中：終了ボタン
       btnHtml = `<button class="task-btn end-btn" onclick="endTask('${task.id}')"><i class="fas fa-stop"></i></button>`;
-      timesText = `開始: ${new Date(task.start_time).toLocaleTimeString()}`;
     } else {
       // 完了後：完了済みボタン（ホバーで複製ボタンを表示）
       btnHtml = `
@@ -188,21 +236,85 @@ async function fetchTasks() {
           <button class="task-btn duplicate-btn" onclick="duplicateTask('${task.id}')"><i class="fas fa-rotate-left"></i></button>
         </div>
       `;
-      timesText = `開始: ${new Date(task.start_time).toLocaleTimeString()} | 終了: ${new Date(task.end_time).toLocaleTimeString()}`;
     }
+
+    const startTimeVal = formatTimeForInput(task.start_time);
+    const endTimeVal = formatTimeForInput(task.end_time);
 
     // HTMLの構築
     li.innerHTML = `
       ${btnHtml}
       <div class="task-content">
-        <span class="task-title"></span>
-        ${timesText ? `<span class="task-times">${timesText}</span>` : ''}
+        <input type="text" class="inline-edit-title" value="">
+        <div class="task-times">
+          <input type="text" class="inline-edit-time start-time-input" placeholder="開始" value="${startTimeVal}">
+          <span class="time-separator">~</span>
+          <input type="text" class="inline-edit-time end-time-input" placeholder="終了" value="${endTimeVal}">
+        </div>
       </div>
       <button class="edit-btn" onclick="openEditModal('${task.id}')"><i class="fas fa-edit"></i></button>
     `;
     
-    // XSS対策：タイトルはtextContentで安全に挿入
-    li.querySelector('.task-title').textContent = task.title;
+    // タイトル
+    const titleInput = li.querySelector('.inline-edit-title');
+    titleInput.value = task.title;
+    titleInput.addEventListener('blur', (e) => {
+      const newVal = e.target.value.trim();
+      if (newVal !== task.title && newVal !== "") {
+        updateTaskInline(task.id, { title: newVal });
+      } else {
+        e.target.value = task.title;
+      }
+    });
+    titleInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') e.target.blur();
+    });
+
+    // 開始時間
+    const startInput = li.querySelector('.start-time-input');
+    startInput.addEventListener('blur', (e) => {
+      const val = e.target.value.trim();
+      if (val === "") {
+        if (task.start_time !== null) updateTaskInline(task.id, { start_time: null });
+        return;
+      }
+      const iso = parseTimeInput(val, task.scheduled_at);
+      if (!iso) {
+        alert('時間の形式が正しくありません (例: 0123, 01:23, 01:23:45)');
+        e.target.value = startTimeVal;
+        return;
+      }
+      // 単純比較のためDateオブジェクト経由で比較
+      if (!task.start_time || new Date(iso).getTime() !== new Date(task.start_time).getTime()) {
+        updateTaskInline(task.id, { start_time: iso });
+      }
+    });
+    startInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') e.target.blur();
+    });
+
+    // 終了時間
+    const endInput = li.querySelector('.end-time-input');
+    endInput.addEventListener('blur', (e) => {
+      const val = e.target.value.trim();
+      if (val === "") {
+        if (task.end_time !== null) updateTaskInline(task.id, { end_time: null });
+        return;
+      }
+      const iso = parseTimeInput(val, task.scheduled_at);
+      if (!iso) {
+        alert('時間の形式が正しくありません (例: 0123, 01:23, 01:23:45)');
+        e.target.value = endTimeVal;
+        return;
+      }
+      if (!task.end_time || new Date(iso).getTime() !== new Date(task.end_time).getTime()) {
+        updateTaskInline(task.id, { end_time: iso });
+      }
+    });
+    endInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') e.target.blur();
+    });
+
     taskList.appendChild(li);
   });
 }
@@ -234,6 +346,16 @@ window.endTask = async (id) => {
   await client.from('tasks').update({ end_time: new Date().toISOString() }).eq('id', id);
   fetchTasks();
 };
+
+// インライン更新の処理
+async function updateTaskInline(id, updates) {
+  const { error } = await client.from('tasks').update(updates).eq('id', id);
+  if (error) {
+    console.error('更新エラー:', error);
+    alert('更新に失敗しました');
+  }
+  fetchTasks();
+}
 
 // 複製ボタンの処理
 window.duplicateTask = async (id) => {
@@ -274,8 +396,8 @@ window.openEditModal = (id) => {
   document.getElementById('edit-tag-ids').value = task.tag_ids || '';
   document.getElementById('edit-routine-id').value = task.routine_id || '';
 
-  document.getElementById('display-created-at').textContent = task.created_at ? new Date(task.created_at).toLocaleString() : '-';
-  document.getElementById('display-updated-at').textContent = task.updated_at ? new Date(task.updated_at).toLocaleString() : '-';
+  document.getElementById('display-created-at').textContent = task.created_at ? new Date(task.created_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }) : '-';
+  document.getElementById('display-updated-at').textContent = task.updated_at ? new Date(task.updated_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }) : '-';
 
   editModal.style.display = 'flex';
 };

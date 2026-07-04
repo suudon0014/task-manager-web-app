@@ -48,9 +48,38 @@ li.sortable-ghost { opacity: 0.4; background: #e0e0e0; }
   display: flex;
 }
 
-.task-content { display: flex; flex-direction: column; }
+.task-content { display: flex; flex-direction: column; flex: 1; }
 .task-title { font-weight: bold; }
-.task-times { font-size: 0.8rem; color: #777; margin-top: 4px; }
+.task-times { font-size: 0.8rem; color: #777; margin-top: 4px; display: flex; align-items: center; gap: 5px; }
+
+.inline-edit-title {
+  border: 1px solid transparent;
+  background: transparent;
+  font-weight: bold;
+  font-size: 1rem;
+  padding: 2px 4px !important;
+  width: 100%;
+}
+.inline-edit-title:hover, .inline-edit-title:focus {
+  border-color: #ddd;
+  background: #fff;
+}
+.inline-edit-time {
+  border: 1px solid transparent;
+  background: transparent;
+  font-size: 0.8rem;
+  color: #777;
+  padding: 1px 2px !important;
+  width: 65px;
+}
+.inline-edit-time:hover, .inline-edit-time:focus {
+  border-color: #ddd;
+  background: #fff;
+  color: #333;
+}
+.time-separator {
+  color: #aaa;
+}
 
 /* 日付ナビゲーションのスタイル */
 .date-nav-btn {
