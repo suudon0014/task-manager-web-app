@@ -14,8 +14,35 @@ const authPassword = document.getElementById('auth-password');
 const taskList = document.getElementById('task-list');
 const taskForm = document.getElementById('task-form');
 
+// 日付ナビゲーション用要素
+const btnPrevDay = document.getElementById('btn-prev-day');
+const btnNextDay = document.getElementById('btn-next-day');
+const btnCalendar = document.getElementById('btn-calendar');
+const currentDateDisplay = document.getElementById('current-date-display');
+const datePicker = document.getElementById('date-picker');
+
 let currentTasks = [];
 let currentUser = null;
+let selectedDate = new Date(); // デフォルトは今日
+
+// 日付を YYYY-MM-DD 形式の文字列にするヘルパー
+function formatDate(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+// 表示を更新するヘルパー
+function updateDateDisplay() {
+  currentDateDisplay.textContent = selectedDate.toLocaleDateString('ja-JP', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    weekday: 'short'
+  });
+  datePicker.value = formatDate(selectedDate);
+}
 
 // ==========================================
 // 1. 認証（ログイン・サインアップ）関連の処理
@@ -80,6 +107,42 @@ document.getElementById('btn-logout').addEventListener('click', async () => {
   await client.auth.signOut();
 });
 
+// ==========================================
+// 1.5 日付ナビゲーションのイベント
+// ==========================================
+
+// 前の日へ
+btnPrevDay.addEventListener('click', () => {
+  selectedDate.setDate(selectedDate.getDate() - 1);
+  fetchTasks();
+});
+
+// 次の日へ
+btnNextDay.addEventListener('click', () => {
+  selectedDate.setDate(selectedDate.getDate() + 1);
+  fetchTasks();
+});
+
+// カレンダー表示（カレンダーアイコン部分をクリックした時）
+btnCalendar.addEventListener('click', () => {
+  // ブラウザのネイティブな日付選択ツールを起動
+  if (typeof datePicker.showPicker === 'function') {
+    datePicker.showPicker();
+  } else {
+    datePicker.focus();
+    datePicker.click();
+  }
+});
+
+// カレンダーで日付が選択された時
+datePicker.addEventListener('change', (e) => {
+  if (e.target.value) {
+    // YYYY-MM-DD をローカル時刻としてパースする
+    const [year, month, day] = e.target.value.split('-').map(Number);
+    selectedDate = new Date(year, month - 1, day);
+    fetchTasks();
+  }
+});
 
 // ==========================================
 // 2. タスク管理関連の処理
@@ -89,9 +152,19 @@ document.getElementById('btn-logout').addEventListener('click', async () => {
 async function fetchTasks() {
   if (!currentUser) return; // 未ログイン時は実行しない
 
+  updateDateDisplay();
+
+  // 選択された日付の 00:00:00 〜 23:59:59.999 の範囲でフィルタリング
+  const startOfDay = new Date(selectedDate);
+  startOfDay.setHours(0, 0, 0, 0);
+  const endOfDay = new Date(selectedDate);
+  endOfDay.setHours(23, 59, 59, 999);
+
   const { data: tasks, error } = await client
     .from('tasks')
     .select('*')
+    .gte('created_at', startOfDay.toISOString())
+    .lte('created_at', endOfDay.toISOString())
     .order('position', { ascending: true }); // 並び順に取得
 
   if (error) return console.error('取得エラー:', error);
@@ -140,8 +213,23 @@ taskForm.addEventListener('submit', async (e) => {
   const titleInput = document.getElementById('task-title');
   if (!titleInput.value.trim() || !currentUser) return;
 
+  // 選択された日付に合わせて作成日時を設定
+  // 今日なら現在の時刻、それ以外ならその日の 00:00:00 (または現在時刻のその日版)
+  const now = new Date();
+  let createdAt;
+  if (formatDate(selectedDate) === formatDate(now)) {
+    createdAt = now.toISOString();
+  } else {
+    const taskDate = new Date(selectedDate);
+    taskDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+    createdAt = taskDate.toISOString();
+  }
+
   // ※ user_id はSupabase側（PostgreSQLのデフォルト値）で自動付与されます
-  await client.from('tasks').insert([{ title: titleInput.value.trim() }]);
+  await client.from('tasks').insert([{
+    title: titleInput.value.trim(),
+    created_at: createdAt
+  }]);
   
   titleInput.value = '';
   fetchTasks();
@@ -164,8 +252,22 @@ window.duplicateTask = async (id) => {
   const task = currentTasks.find(t => t.id === id);
   if (!task) return;
   
+  // 複製時も現在の選択日に合わせる
+  const now = new Date();
+  let createdAt;
+  if (formatDate(selectedDate) === formatDate(now)) {
+    createdAt = now.toISOString();
+  } else {
+    const taskDate = new Date(selectedDate);
+    taskDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+    createdAt = taskDate.toISOString();
+  }
+
   // タイトルだけをコピーし、開始・終了時間は空（デフォルト）で追加
-  await client.from('tasks').insert([{ title: task.title }]);
+  await client.from('tasks').insert([{
+    title: task.title,
+    created_at: createdAt
+  }]);
   fetchTasks();
 };
 

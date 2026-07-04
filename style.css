@@ -11,3 +11,21 @@ li.sortable-ghost { opacity: 0.4; background: #e0e0e0; }
 .task-content { display: flex; flex-direction: column; }
 .task-title { font-weight: bold; }
 .task-times { font-size: 0.8rem; color: #777; margin-top: 4px; }
+
+/* 日付ナビゲーションのスタイル */
+.date-nav-btn {
+  background: none;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 1.2rem;
+  color: #555;
+  transition: background-color 0.2s;
+}
+.date-nav-btn:hover {
+  background-color: #f0f0f0;
+}
+#btn-calendar:hover {
+  color: #007bff;
+}

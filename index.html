@@ -35,6 +35,17 @@
         <button id="btn-logout" style="font-size: 0.8rem; padding: 4px 8px; background-color: #dc3545; color: white; border: none; border-radius: 4px;">ログアウト</button>
       </div>
 
+      <!-- 日付ナビゲーション -->
+      <div id="date-navigation" style="display: flex; justify-content: center; align-items: center; gap: 15px; margin-bottom: 20px;">
+        <button id="btn-prev-day" class="date-nav-btn"><i class="fas fa-caret-left"></i></button>
+        <div style="display: flex; align-items: center; gap: 8px; cursor: pointer;" id="btn-calendar">
+          <i class="far fa-calendar-alt"></i>
+          <span id="current-date-display" style="font-weight: bold; font-size: 1.1rem;"></span>
+        </div>
+        <button id="btn-next-day" class="date-nav-btn"><i class="fas fa-caret-right"></i></button>
+        <input type="date" id="date-picker" style="display: none;">
+      </div>
+
       <!-- タスク追加フォーム -->
       <form id="task-form">
         <input type="text" id="task-title" placeholder="新しいタスクを入力" required>
