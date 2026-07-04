@@ -8,14 +8,26 @@ Supabase（バックエンド）とGitHub Pages（フロントエンド）を利
 * **ユーザー認証 (Supabase Auth)**
   * メールアドレスとパスワードによるサインアップ / ログイン
   * ログインユーザー専用のタスク一覧表示
-* **タスクのステータス管理**
-  タスクの進行状態に応じて、ボタンの役割とUIが動的に変化します。
-  1. **開始前** : 「▶ 開始」ボタン。クリックで開始時間を記録。
-  2. **実行中** : 「◼ 終了」ボタン。クリックで終了時間を記録。開始時間を表示。
-  3. **完了後** : 「📋 複製」ボタン。クリックで時間をリセットした同名のタスクを新規作成。開始・終了時間を表示。
+* **日付ナビゲーション**
+  * 画面上部の矢印ボタンやカレンダーアイコンを使用して、表示するタスクの日付を簡単に切り替えられます。
+* **タスクのステータス管理とアクション**
+  タスクの状態に応じてボタンが動的に変化します。
+  1. **開始前** : 「▶ 開始」ボタン。クリックで現在時刻を開始時間として記録。
+  2. **実行中** : 「◼ 終了」ボタン。クリックで現在時刻を終了時間として記録。
+  3. **完了後** : チェックアイコンを表示。アイコンにホバーすると「📋 複製」ボタンが表示され、タスクを現在の選択日にコピー（再作成）できます。
+* **インライン編集**
+  * タスク一覧上で、タスク名および開始・終了時間を直接編集し、即座に保存できます。
+* **詳細編集モーダル**
+  * タスク右側の編集ボタンからモーダルを開き、予定日、メモ（Markdown対応）、各種UUID（Project, Mode, Tag, Routine）を詳細に設定できます。
 * **直感的な並び替え**
-  * ドラッグ＆ドロップでタスクの順序を自由に変更可能（SortableJSを使用）。
-  * 変更した順序はデータベースに保存され、次回読み込み時にも維持されます。
+  * ドラッグ＆ドロップでタスクの順序を自由に変更可能（SortableJSを使用）。順序はデータベースに保存されます。
+
+## 💡 便利な機能
+
+* **柔軟な時間入力**
+  * 時間の入力フィールドは、`0900` (HHmm)、`090000` (HHmmss) のような数字のみの入力や、コロンを省略した形式にも対応しており、自動的に適切なフォーマットに補完されます。
+* **日本時間 (JST) への対応**
+  * サーバー（Supabase）側ではUTCで保存されますが、アプリ内での表示・入力はすべて日本時間（Asia/Tokyo）として処理されます。
 
 ## 🛠 使用技術 (Tech Stack)
 
@@ -44,8 +56,16 @@ Supabase上のPostgreSQLを使用します。
 | `title` | `text` | NOT NULL | タスク名 |
 | `start_time` | `timestamptz` | NULL | タスクの開始日時 |
 | `end_time` | `timestamptz` | NULL | タスクの終了日時 |
+| `scheduled_at` | `date` | NOT NULL, `now()` | タスクの予定日 |
 | `position` | `float8` | `extract(epoch from now())` | 並び替え順序を管理するための数値 |
+| `note` | `text` | NULL | メモ（Markdown形式） |
 | `user_id` | `uuid` | NOT NULL, REFERENCES `auth.users(id)`<br>デフォルト: `auth.uid()` | タスク作成者のユーザーID |
+| `project_id` | `uuid` | NULL | 関連プロジェクトID |
+| `mode_id` | `uuid` | NULL | モードID |
+| `tag_ids` | `uuid` | NULL | タグID |
+| `routine_id` | `uuid` | NULL | ルーチンID |
+| `created_at` | `timestamptz` | `now()` | 作成日時 |
+| `updated_at` | `timestamptz` | `now()` | 更新日時 |
 
 ### セキュリティ (Row Level Security: RLS)
 
@@ -68,8 +88,16 @@ CREATE TABLE tasks (
   title TEXT NOT NULL,
   start_time TIMESTAMPTZ,
   end_time TIMESTAMPTZ,
+  scheduled_at DATE NOT NULL DEFAULT now(),
   position DOUBLE PRECISION DEFAULT extract(epoch from now()),
-  user_id UUID REFERENCES auth.users NOT NULL DEFAULT auth.uid()
+  note TEXT,
+  user_id UUID REFERENCES auth.users NOT NULL DEFAULT auth.uid(),
+  project_id UUID,
+  mode_id UUID,
+  tag_ids UUID,
+  routine_id UUID,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 -- RLSの有効化
