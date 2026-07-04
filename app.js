@@ -170,25 +170,30 @@ async function fetchTasks() {
     const li = document.createElement('li');
     li.dataset.id = task.id;
 
-    let iconClass, btnAction, timesText = '';
+    let btnHtml, timesText = '';
     
     // 要件に応じた状態判定
     if (!task.start_time) {
-      iconClass = 'fa-play'; // 開始前：開始ボタン
-      btnAction = `startTask('${task.id}')`;
+      // 開始前：開始ボタン
+      btnHtml = `<button class="task-btn start-btn" onclick="startTask('${task.id}')"><i class="fas fa-play"></i></button>`;
     } else if (!task.end_time) {
-      iconClass = 'fa-stop'; // 実行中：終了ボタン
-      btnAction = `endTask('${task.id}')`;
+      // 実行中：終了ボタン
+      btnHtml = `<button class="task-btn end-btn" onclick="endTask('${task.id}')"><i class="fas fa-stop"></i></button>`;
       timesText = `開始: ${new Date(task.start_time).toLocaleTimeString()}`;
     } else {
-      iconClass = 'fa-copy'; // 完了後：複製ボタン
-      btnAction = `duplicateTask('${task.id}')`;
+      // 完了後：完了済みボタン（ホバーで複製ボタンを表示）
+      btnHtml = `
+        <div class="task-btn-container">
+          <button class="task-btn completed-btn"><i class="fas fa-check"></i></button>
+          <button class="task-btn duplicate-btn" onclick="duplicateTask('${task.id}')"><i class="fas fa-rotate-left"></i></button>
+        </div>
+      `;
       timesText = `開始: ${new Date(task.start_time).toLocaleTimeString()} | 終了: ${new Date(task.end_time).toLocaleTimeString()}`;
     }
 
     // HTMLの構築
     li.innerHTML = `
-      <button class="task-btn" onclick="${btnAction}"><i class="fas ${iconClass}"></i></button>
+      ${btnHtml}
       <div class="task-content">
         <span class="task-title"></span>
         ${timesText ? `<span class="task-times">${timesText}</span>` : ''}
