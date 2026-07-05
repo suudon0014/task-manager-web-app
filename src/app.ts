@@ -1,3 +1,6 @@
+import { createClient } from '@supabase/supabase-js';
+import { Database } from './types/supabase';
+
 // @ts-ignore
 const SUPABASE_URL = 'https://dbxesltmvijfnxvsklwj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_9v4R-rTXUgktfzRIYVJlHA_qZ1ZCbGY';
@@ -5,7 +8,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_9v4R-rTXUgktfzRIYVJlHA_qZ1ZCbGY';
 // 外部グローバル変数の型定義
 declare const Sortable: any;
 
-const client = (window as any).supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const client = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // DOM要素の取得（型キャストとNon-null指定を追加）
 const authSection = document.getElementById('auth-section')!;
@@ -24,22 +27,8 @@ const btnCalendar = document.getElementById('btn-calendar')!;
 const currentDateDisplay = document.getElementById('current-date-display')!;
 const datePicker = document.getElementById('date-picker') as HTMLInputElement;
 
-// タスクオブジェクトの簡易的な型定義
-interface Task {
-  id: string;
-  title: string;
-  start_time: string | null;
-  end_time: string | null;
-  scheduled_at: string;
-  position: number;
-  note: string | null;
-  project_id: string | null;
-  mode_id: string | null;
-  tag_ids: string | null;
-  routine_id: string | null;
-  created_at?: string;
-  updated_at?: string;
-}
+// 手動 interface は廃止し、スキーマ定義から参照行（Row）の型を抽出
+type Task = Database['public']['Tables']['tasks']['Row'];
 
 let currentTasks: Task[] = [];
 let currentUser: any = null;
@@ -219,7 +208,7 @@ async function fetchTasks() {
 
   if (error) return console.error('取得エラー:', error);
   
-  currentTasks = tasks as Task[];
+  currentTasks = tasks || [];
   taskList.innerHTML = '';
 
   currentTasks.forEach(task => {
@@ -280,7 +269,7 @@ async function fetchTasks() {
         if (task.start_time !== null) updateTaskInline(task.id, { start_time: null });
         return;
       }
-      const iso = parseTimeInput(val, task.scheduled_at);
+      const iso = parseTimeInput(val, task.scheduled_at || formatDate(selectedDate));
       if (!iso) {
         alert('時間の形式が正しくありません (例: 0123, 01:23, 01:23:45)');
         target.value = startTimeVal;
@@ -302,7 +291,7 @@ async function fetchTasks() {
         if (task.end_time !== null) updateTaskInline(task.id, { end_time: null });
         return;
       }
-      const iso = parseTimeInput(val, task.scheduled_at);
+      const iso = parseTimeInput(val, task.scheduled_at || formatDate(selectedDate));
       if (!iso) {
         alert('時間の形式が正しくありません (例: 0123, 01:23, 01:23:45)');
         target.value = endTimeVal;
@@ -416,7 +405,7 @@ function openEditModal(id: string) {
 
   (document.getElementById('edit-id') as HTMLInputElement).value = task.id;
   (document.getElementById('edit-title') as HTMLInputElement).value = task.title;
-  (document.getElementById('edit-scheduled-at') as HTMLInputElement).value = task.scheduled_at;
+  (document.getElementById('edit-scheduled-at') as HTMLInputElement).value = task.scheduled_at || '';
   (document.getElementById('edit-note') as HTMLTextAreaElement).value = task.note || '';
   (document.getElementById('edit-project-id') as HTMLInputElement).value = task.project_id || '';
   (document.getElementById('edit-mode-id') as HTMLInputElement).value = task.mode_id || '';
@@ -473,7 +462,9 @@ new Sortable(taskList, {
     const items = [...taskList.children] as HTMLElement[];
     
     const updates = items.map((item, index) => {
-      return client.from('tasks').update({ position: index }).eq('id', item.dataset.id);
+      const id = item.dataset.id;
+      if (!id) return Promise.resolve();
+      return client.from('tasks').update({ position: index }).eq('id', id);
     });
     
     await Promise.all(updates);
