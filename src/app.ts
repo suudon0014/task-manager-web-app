@@ -4,14 +4,6 @@ const SUPABASE_ANON_KEY = 'sb_publishable_9v4R-rTXUgktfzRIYVJlHA_qZ1ZCbGY';
 
 // 外部グローバル変数の型定義
 declare const Sortable: any;
-interface Window {
-  supabase: any;
-  startTask: (id: string) => void;
-  endTask: (id: string) => void;
-  duplicateTask: (id: string) => void;
-  openEditModal: (id: string) => void;
-  closeEditModal: () => void;
-}
 
 const client = (window as any).supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -237,14 +229,14 @@ async function fetchTasks() {
     let btnHtml = '';
     
     if (!task.start_time) {
-      btnHtml = `<button class="task-btn start-btn" onclick="startTask('${task.id}')"><i class="fas fa-play"></i></button>`;
+      btnHtml = `<button class="task-btn start-btn" data-action="start"><i class="fas fa-play"></i></button>`;
     } else if (!task.end_time) {
-      btnHtml = `<button class="task-btn end-btn" onclick="endTask('${task.id}')"><i class="fas fa-stop"></i></button>`;
+      btnHtml = `<button class="task-btn end-btn" data-action="end"><i class="fas fa-stop"></i></button>`;
     } else {
       btnHtml = `
         <div class="task-btn-container">
           <button class="task-btn completed-btn"><i class="fas fa-check"></i></button>
-          <button class="task-btn duplicate-btn" onclick="duplicateTask('${task.id}')"><i class="fas fa-rotate-left"></i></button>
+          <button class="task-btn duplicate-btn" data-action="duplicate"><i class="fas fa-rotate-left"></i></button>
         </div>
       `;
     }
@@ -262,7 +254,7 @@ async function fetchTasks() {
           <input type="text" class="inline-edit-time end-time-input" placeholder="終了" value="${endTimeVal}">
         </div>
       </div>
-      <button class="edit-btn" onclick="openEditModal('${task.id}')"><i class="fas fa-edit"></i></button>
+      <button class="edit-btn" data-action="edit"><i class="fas fa-edit"></i></button>
     `;
     
     const titleInput = li.querySelector('.inline-edit-title') as HTMLInputElement;
@@ -328,6 +320,40 @@ async function fetchTasks() {
   });
 }
 
+// タスク一覧全体のクリックイベントを監視（イベントデリゲーション）
+taskList.addEventListener('click', (e: Event) => {
+  const target = e.target as HTMLElement;
+
+  // アイコン（<i>）がクリックされた場合を考慮し、最も近いボタン要素を探す
+  const button = target.closest('button');
+  if (!button) return;
+
+  // ボタンに設定されたアクションを取得
+  const action = button.dataset.action;
+  if (!action) return;
+
+  // クリックされたボタンが含まれる親の <li> 要素からタスクIDを取得
+  const li = button.closest('li');
+  const taskId = li?.dataset.id;
+  if (!taskId) return;
+
+  // アクションに応じた関数を呼び出す
+  switch (action) {
+    case 'start':
+      startTask(taskId);
+      break;
+    case 'end':
+      endTask(taskId);
+      break;
+    case 'duplicate':
+      duplicateTask(taskId);
+      break;
+    case 'edit':
+      openEditModal(taskId);
+      break;
+  }
+});
+
 taskForm.addEventListener('submit', async (e: Event) => {
   e.preventDefault();
   const titleInput = document.getElementById('task-title') as HTMLInputElement;
@@ -342,15 +368,15 @@ taskForm.addEventListener('submit', async (e: Event) => {
   fetchTasks();
 });
 
-window.startTask = async (id: string) => {
+async function startTask(id: string) {
   await client.from('tasks').update({ start_time: new Date().toISOString() }).eq('id', id);
   fetchTasks();
-};
+}
 
-window.endTask = async (id: string) => {
+async function endTask(id: string) {
   await client.from('tasks').update({ end_time: new Date().toISOString() }).eq('id', id);
   fetchTasks();
-};
+}
 
 async function updateTaskInline(id: string, updates: Partial<Task>) {
   const { error } = await client.from('tasks').update(updates).eq('id', id);
@@ -361,7 +387,7 @@ async function updateTaskInline(id: string, updates: Partial<Task>) {
   fetchTasks();
 }
 
-window.duplicateTask = async (id: string) => {
+async function duplicateTask(id: string) {
   const task = currentTasks.find(t => t.id === id);
   if (!task) return;
   
@@ -375,7 +401,7 @@ window.duplicateTask = async (id: string) => {
     routine_id: task.routine_id
   }]);
   fetchTasks();
-};
+}
 
 // ==========================================
 // 2.5 タスク詳細編集モーダルの処理
@@ -384,7 +410,7 @@ window.duplicateTask = async (id: string) => {
 const editModal = document.getElementById('edit-modal')!;
 const editTaskForm = document.getElementById('edit-task-form')!;
 
-window.openEditModal = (id: string) => {
+function openEditModal(id: string) {
   const task = currentTasks.find(t => t.id === id);
   if (!task) return;
 
@@ -401,12 +427,13 @@ window.openEditModal = (id: string) => {
   document.getElementById('display-updated-at')!.textContent = task.updated_at ? new Date(task.updated_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }) : '-';
 
   (editModal as HTMLElement).style.display = 'flex';
-};
+}
 
 const closeEditModal = () => {
   (editModal as HTMLElement).style.display = 'none';
 };
-window.closeEditModal = closeEditModal;
+
+document.querySelector('.btn-cancel')?.addEventListener('click', closeEditModal);
 
 editTaskForm.addEventListener('submit', async (e: Event) => {
   e.preventDefault();
