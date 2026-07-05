@@ -12,9 +12,9 @@ Vite と TypeScript を使用して構築されており、型安全で高速な
   * 画面上部の矢印ボタンやカレンダーアイコンを使用して、表示するタスクの日付を簡単に切り替えられます。
 * **タスクのステータス管理とアクション**
   タスクの状態に応じてボタンが動的に変化します。
-  1. **開始前** : 「▶ 開始」ボタン。クリックで現在時刻を開始時間として記録。
-  2. **実行中** : 「◼ 終了」ボタン。クリックで現在時刻を終了時間として記録。
-  3. **完了後** : チェックアイコンを表示。アイコンにホバーすると「📋 複製」ボタンが表示され、タスクを現在の選択日にコピー（再作成）できます。
+  1. **開始前** : 再生アイコン（<i class="fas fa-play"></i>）。クリックで現在時刻を開始時間として記録。
+  2. **実行中** : 停止アイコン（<i class="fas fa-stop"></i>）。クリックで現在時刻を終了時間として記録。
+  3. **完了後** : チェックアイコン（<i class="fas fa-check"></i>）を表示。アイコンにホバーすると複製アイコン（<i class="fas fa-rotate-left"></i>）が表示され、クリックするとタスクを現在の選択日に複製（再作成）できます。
 * **インライン編集**
   * タスク一覧上で、タスク名および開始・終了時間を直接編集し、即座に保存できます。
 * **詳細編集モーダル**
@@ -58,16 +58,26 @@ Supabase上のPostgreSQLを使用します。
 | `title` | `text` | NOT NULL | タスク名 |
 | `start_time` | `timestamptz` | NULL | タスクの開始日時 |
 | `end_time` | `timestamptz` | NULL | タスクの終了日時 |
-| `scheduled_at` | `date` | NOT NULL, `now()` | タスクの予定日 |
-| `position` | `float8` | `extract(epoch from now())` | 並び替え順序を管理するための数値 |
+| `scheduled_at` | `date` | NULL, DEFAULT `now()` | タスクの予定日 |
+| `position` | `float8` | NULL, DEFAULT `extract(epoch from now())` | 並び替え順序を管理するための数値 |
 | `note` | `text` | NULL | メモ（Markdown形式） |
 | `user_id` | `uuid` | NOT NULL, REFERENCES `auth.users(id)`<br>デフォルト: `auth.uid()` | タスク作成者のユーザーID |
-| `project_id` | `uuid` | NULL | 関連プロジェクトID |
-| `mode_id` | `uuid` | NULL | モードID |
-| `tag_ids` | `uuid` | NULL | タグID |
-| `routine_id` | `uuid` | NULL | ルーチンID |
-| `created_at` | `timestamptz` | `now()` | 作成日時 |
-| `updated_at` | `timestamptz` | `now()` | 更新日時 |
+| `project_id` | `uuid` | NULL, REFERENCES `projects(id)` | 関連プロジェクトID |
+| `mode_id` | `uuid` | NULL, REFERENCES `modes(id)` | モードID |
+| `tag_ids` | `text` | NULL | タグID（※現在は簡易的にUUID文字列を保持） |
+| `routine_id` | `uuid` | NULL, REFERENCES `routines(id)` | ルーチンID |
+| `created_at` | `timestamptz` | NULL, DEFAULT `now()` | 作成日時 |
+| `updated_at` | `timestamptz` | NULL, DEFAULT `now()` | 更新日時 |
+
+### その他のテーブル
+
+タスクに紐付くメタ情報や関連データを管理するテーブル群です。
+
+- **`projects`**: プロジェクト情報を管理
+- **`modes`**: 作業モード（例：集中、休憩）を管理
+- **`tags`**: タグ情報を管理
+- **`routines`**: ルーチンタスクのテンプレート情報を管理
+- **`tasks_tags`**: タスクとタグの中間テーブル（多対多の関連付け用）
 
 ### セキュリティ (Row Level Security: RLS)
 
@@ -84,32 +94,68 @@ Supabase上のPostgreSQLを使用します。
 2. **SQL Editor** を開き、以下のSQLを実行してテーブルとRLSポリシーを作成します。
 
 ```sql
--- タスクテーブルの作成
+-- 1. 関連テーブルの作成
+CREATE TABLE projects (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  title TEXT,
+  note TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE modes (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  title TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE tags (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  title TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE routines (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  title TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 2. タスクテーブルの作成
 CREATE TABLE tasks (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   title TEXT NOT NULL,
   start_time TIMESTAMPTZ,
   end_time TIMESTAMPTZ,
-  scheduled_at DATE NOT NULL DEFAULT now(),
+  scheduled_at DATE DEFAULT now(),
   position DOUBLE PRECISION DEFAULT extract(epoch from now()),
   note TEXT,
   user_id UUID REFERENCES auth.users NOT NULL DEFAULT auth.uid(),
-  project_id UUID,
-  mode_id UUID,
-  tag_ids UUID,
-  routine_id UUID,
+  project_id UUID REFERENCES projects(id),
+  mode_id UUID REFERENCES modes(id),
+  tag_ids TEXT, -- 簡易的な複数タグ保持用（拡張用）
+  routine_id UUID REFERENCES routines(id),
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
--- RLSの有効化
+-- 3. 中間テーブル（タスクとタグの多対多用）
+CREATE TABLE tasks_tags (
+  task_id UUID REFERENCES tasks(id) ON DELETE CASCADE,
+  tag_id UUID REFERENCES tags(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  PRIMARY KEY (task_id, tag_id)
+);
+
+-- 4. RLS (Row Level Security) の設定
 ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
 
--- 自分自身のタスクのみ操作可能なポリシーを作成
 CREATE POLICY "Users can manage their own tasks" 
 ON tasks FOR ALL 
 USING (auth.uid() = user_id) 
 WITH CHECK (auth.uid() = user_id);
+
+-- ※ 他のテーブル（projects, modes等）も必要に応じてポリシーを設定してください。
 ```
 
 3.  左側メニューの Authentication > Providers > Email を開き、Confirm email を OFF
